@@ -1,0 +1,27 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# ML artifacts
+ml/checkpoints/
+ml/*.pt
+ml/*.bin
+data/raw/
+data/*.csv
+
+# Node
+frontend/node_modules/
+frontend/.env
+frontend/dist/
+
+# Backend
+backend/__pycache__/
+backend/.env
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
