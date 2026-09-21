@@ -25,3 +25,7 @@ backend/.env
 .DS_Store
 .vscode/
 .idea/
+
+.venv/
+ml/checkpoints/
+ml/final_model/
