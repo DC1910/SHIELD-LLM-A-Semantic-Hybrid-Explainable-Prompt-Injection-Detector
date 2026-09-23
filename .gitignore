@@ -28,4 +28,5 @@ backend/.env
 
 .venv/
 ml/checkpoints/
-ml/final_model/
+ml/final_model/node_modules/
+node_modules/
