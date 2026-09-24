@@ -1,5 +1,6 @@
 # Python
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -9,23 +10,23 @@ __pycache__/
 ml/checkpoints/
 ml/*.pt
 ml/*.bin
+ml/final_model/
+
+# Dataset
 data/raw/
 data/*.csv
+
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/.env
 
 # Node
 frontend/node_modules/
 frontend/.env
 frontend/dist/
 
-# Backend
-backend/__pycache__/
-backend/.env
-
 # OS/IDE
 .DS_Store
 .vscode/
 .idea/
-
-.venv/
-ml/checkpoints/
-ml/final_model/backend/venv/
