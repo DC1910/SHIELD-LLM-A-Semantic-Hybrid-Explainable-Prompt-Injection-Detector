@@ -28,4 +28,4 @@ backend/.env
 
 .venv/
 ml/checkpoints/
-ml/final_model/
+ml/final_model/backend/venv/
