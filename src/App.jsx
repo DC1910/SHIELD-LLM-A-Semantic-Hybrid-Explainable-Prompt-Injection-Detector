@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 function App() {
   const [page, setPage] = useState("console")
@@ -6,108 +6,81 @@ function App() {
   const [result, setResult] = useState(null)
   const [scanning, setScanning] = useState(false)
 
+  const [dashboardStats, setDashboardStats] = useState(null)
+  const [dashboardLogs, setDashboardLogs] = useState([])
+
+useEffect(() => {
+  fetch("http://localhost:8000/stats")
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("SHIELD STATS:", data)
+      setDashboardStats(data)
+    })
+    .catch((error) => {
+      console.error("STATS ERROR:", error)
+    })
+
+  fetch("http://localhost:8000/logs?limit=10")
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("SHIELD LOGS:", data)
+      setDashboardLogs(data)
+    })
+    .catch((error) => {
+      console.error("LOGS ERROR:", error)
+    })
+}, [])
+
   // ============================================================
   // PROMPT ANALYSIS
   // ============================================================
 
-  const analyzePrompt = () => {
-    if (!prompt.trim() || scanning) return
+const analyzePrompt = async () => {
+  if (!prompt.trim() || scanning) return
 
-    setScanning(true)
-    setResult(null)
+  setScanning(true)
+  setResult(null)
 
-    setTimeout(() => {
-      const text = prompt.toLowerCase()
-      let mockResult
+  try {
+    const response = await fetch("http://localhost:8000/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: prompt,
+      }),
+    })
 
-      // --------------------------------------------------------
-      // MALICIOUS
-      // --------------------------------------------------------
+    if (!response.ok) {
+      throw new Error(`Backend error: ${response.status}`)
+    }
 
-      if (
-        text.includes("ignore all previous") ||
-        text.includes("reveal the system prompt") ||
-        text.includes("forget the rules") ||
-        text.includes("bypass the security") ||
-        text.includes("disregard your safety")
-      ) {
-        mockResult = {
-          verdict: "malicious",
-          combined_score: 0.92,
+    const data = await response.json()
 
-          detectors: {
-            classifier: 0.91,
-            semantic: 0.87,
-            rules: {
-              matched: true,
-              categories: ["instruction_override"],
-            },
-          },
+    setResult(data)
+  } catch (error) {
+    console.error("Failed to analyze prompt:", error)
 
-          explanation:
-            "Instruction override pattern detected. The prompt attempts to manipulate the model's original instructions.",
-        }
-      }
-
-      // --------------------------------------------------------
-      // SUSPICIOUS
-      // --------------------------------------------------------
-
-      else if (
-        text.includes("pretend you are") ||
-        text.includes("unrestricted") ||
-        text.includes("administrator") ||
-        text.includes("bypass") ||
-        text.includes("act as the system")
-      ) {
-        mockResult = {
-          verdict: "suspicious",
-          combined_score: 0.68,
-
-          detectors: {
-            classifier: 0.64,
-            semantic: 0.71,
-            rules: {
-              matched: true,
-              categories: ["role_manipulation"],
-            },
-          },
-
-          explanation:
-            "The prompt contains role manipulation and attempts to position the model outside its normal operating constraints.",
-        }
-      }
-
-      // --------------------------------------------------------
-      // SAFE
-      // --------------------------------------------------------
-
-      else {
-        mockResult = {
-          verdict: "safe",
-          combined_score: 0.08,
-
-          detectors: {
-            classifier: 0.06,
-            semantic: 0.11,
-            rules: {
-              matched: false,
-              categories: [],
-            },
-          },
-
-          explanation:
-            "No significant prompt injection or malicious instruction patterns were detected.",
-
-          llm_response:
-            "This appears to be a benign prompt. SHEILD-LLM has not detected any significant security threats.",
-        }
-      }
-
-      setResult(mockResult)
-      setScanning(false)
-    }, 1600)
+    setResult({
+      verdict: "suspicious",
+      combined_score: 0,
+      detectors: {
+        classifier: 0,
+        semantic: 0,
+        rules: {
+          matched: false,
+          categories: [],
+        },
+      },
+      explanation:
+        "Unable to connect to the SHIELD-LLM backend. Make sure the FastAPI server is running on port 8000.",
+      llm_response: null,
+    })
+  } finally {
+    setScanning(false)
   }
+}
 
   // ============================================================
   // VERDICT STYLES
@@ -266,7 +239,10 @@ function App() {
       <main className="relative z-10 max-w-6xl mx-auto px-6 lg:px-10">
 
         {page === "dashboard" ? (
-          <Dashboard />
+          <Dashboard 
+            dashboardStats={dashboardStats}
+            dashboardLogs={dashboardLogs} 
+            />
         ) : (
 
           <section className="pt-16 pb-24">
@@ -870,33 +846,31 @@ function DetectorBar({
 // DASHBOARD
 // ============================================================
 
-function Dashboard() {
+function Dashboard({ dashboardStats, dashboardLogs }) {
 
-  const stats = {
-    total: 12842,
-    safe: 8421,
-    suspicious: 823,
-    malicious: 3598,
-  }
+const stats = {
+  total: 12842,
+  safe: 8421,
+  suspicious: 823,
+  malicious: 3598,
+}
 
-  const attacks = [
-    {
-      name: "Instruction Override",
-      count: 1842,
-    },
-    {
-      name: "Jailbreak Attempt",
-      count: 1124,
-    },
-    {
-      name: "Role Manipulation",
-      count: 768,
-    },
-    {
-      name: "Prompt Injection",
-      count: 531,
-    },
-  ]
+
+
+
+const attacks = [
+  { name: "Instruction Override", count: 1842 },
+  { name: "Jailbreak Attempt", count: 1124 },
+  { name: "Role Manipulation", count: 768 },
+  { name: "Prompt Injection", count: 531 },
+]
+
+const realAttacks = Object.entries(
+  dashboardStats?.attack_categories ?? {}
+).map(([name, count]) => ({
+  name,
+  count,
+}))
 
   const recentThreats = [
     {
@@ -920,6 +894,12 @@ function Dashboard() {
       verdict: "MALICIOUS",
     },
   ]
+
+  const realThreats = (dashboardLogs ?? []).map((log) => ({
+  prompt: log.prompt_text,
+  type: log.categories || "Unknown",
+  verdict: log.verdict.toUpperCase(),
+}))
 
   return (
     <section className="pt-16 pb-24">
@@ -953,28 +933,28 @@ function Dashboard() {
 
         <StatCard
           label="TOTAL SCANS"
-          value={stats.total.toLocaleString()}
+          value={(dashboardStats?.total_scans ?? stats.total).toLocaleString()}
           description="ALL ANALYZED PROMPTS"
           color="indigo"
         />
 
         <StatCard
           label="SAFE"
-          value={stats.safe.toLocaleString()}
+          value={(dashboardStats?.safe ?? stats.safe).toLocaleString()}
           description="CLEARED PROMPTS"
           color="emerald"
         />
 
         <StatCard
           label="SUSPICIOUS"
-          value={stats.suspicious.toLocaleString()}
+          value={(dashboardStats?.suspicious ?? stats.suspicious).toLocaleString()}
           description="REQUIRES REVIEW"
           color="amber"
         />
 
         <StatCard
           label="MALICIOUS"
-          value={stats.malicious.toLocaleString()}
+          value={(dashboardStats?.malicious ?? stats.malicious).toLocaleString()}
           description="THREATS DETECTED"
           color="rose"
         />
@@ -1007,22 +987,22 @@ function Dashboard() {
 
             <DashboardBar
               label="Safe"
-              value={stats.safe}
-              total={stats.total}
+              value={dashboardStats?.safe ?? stats.safe}
+              total={dashboardStats?.total_scans ?? stats.total}
               color="emerald"
             />
 
             <DashboardBar
               label="Suspicious"
-              value={stats.suspicious}
-              total={stats.total}
+              value={dashboardStats?.suspicious ?? stats.suspicious}
+              total={dashboardStats?.total_scans ?? stats.total}
               color="amber"
             />
 
             <DashboardBar
               label="Malicious"
-              value={stats.malicious}
-              total={stats.total}
+              value={dashboardStats?.malicious ?? stats.malicious}
+              total={dashboardStats?.total_scans ?? stats.total}
               color="rose"
             />
 
@@ -1047,7 +1027,7 @@ function Dashboard() {
 
           <div className="space-y-5">
 
-            {attacks.map((attack, index) => (
+            {(realAttacks.length > 0 ? realAttacks : attacks).map((attack, index) => (
 
               <div key={attack.name}>
 
@@ -1111,7 +1091,7 @@ function Dashboard() {
 
         <div className="divide-y divide-white/[0.05]">
 
-          {recentThreats.map((item, index) => (
+          {(realThreats.length > 0 ? realThreats : recentThreats).map((item, index) => (
 
             <div
               key={index}
