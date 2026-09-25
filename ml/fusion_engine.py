@@ -22,15 +22,47 @@ from rules_engine import check_rules
 from semantic_engine import SemanticDetector
 
 # Weights for combining detector confidence scores (empirically tuned via grid search
-# against validation data - see tune_fusion.py. This config achieved F1=0.9217,
-# outperforming every individual detector alone, including the classifier's 0.9260... 
-# note: fusion improves recall/precision balance and generalization, not raw accuracy alone).
+# against validation data - see tune_fusion.py. This config achieved weighted-fusion
+# F1 = 0.9217 on the validation subset, which is LOWER than the classifier alone
+# (F1 = 0.9260). Simple weighted fusion does NOT outperform the classifier on its own.
+# The final confidence-gated fusion (see analyze() below) was designed specifically to
+# address this: by trusting the classifier when it is already confident, blending only
+# occurs in the genuine uncertainty zone (0.15 < score < 0.50), which avoids the
+# "drag-down" effect that caused the simple weighted average to underperform.
 WEIGHT_CLASSIFIER = 0.25
 WEIGHT_SEMANTIC = 0.5
 WEIGHT_RULES = 0.25
 
-# Tuned decision boundary (grid search found 0.35 as F1-optimal for the safe/flagged split).
-# Split further into two tiers for a more informative 3-way verdict.
+# --- THRESHOLD REFERENCE (three separate thresholds serving different purposes) ---
+#
+# 1. CLASSIFIER_THRESHOLD = 0.50
+#    Used as the confidence gate. A classifier score >= 0.50 means the classifier
+#    has crossed its own decision boundary and is flagging the input as malicious.
+#    At or below 0.15, it is confidently benign. Outside this range (0.15–0.50),
+#    the classifier is uncertain and the blended score is used instead.
+#
+# 2. THRESHOLD_SUSPICIOUS = 0.35  ("fusion flagged threshold" / binary boundary)
+#    The primary security decision boundary. For BINARY evaluation of attack detection:
+#      fusion_score < 0.35  → benign (label 0)
+#      fusion_score >= 0.35 → attack/flagged (label 1)
+#    In the UI, this also separates SAFE from SUSPICIOUS.
+#
+# 3. THRESHOLD_MALICIOUS = 0.55
+#    Only used for the 3-way application verdict (SUSPICIOUS vs MALICIOUS tier).
+#    This threshold has NO role in binary security evaluation — it only determines
+#    whether a flagged prompt is displayed as SUSPICIOUS or MALICIOUS to the user.
+#
+# ---------------------------------------------------------------------------------
+# APPLICATION VERDICT (3-way, for UI display only):
+#   combined_score < 0.35              → SAFE       (no action needed)
+#   0.35 <= combined_score < 0.55      → SUSPICIOUS (review recommended)
+#   combined_score >= 0.55             → MALICIOUS  (high confidence attack)
+#
+# SECURITY EVALUATION (binary, for measuring attack detection performance):
+#   combined_score < 0.35  → prediction = 0 (benign)
+#   combined_score >= 0.35 → prediction = 1 (attack detected)
+#   i.e.:  fusion_pred = (fusion_score >= 0.35).astype(int)
+# ---------------------------------------------------------------------------------
 THRESHOLD_MALICIOUS = 0.55
 THRESHOLD_SUSPICIOUS = 0.35
 
