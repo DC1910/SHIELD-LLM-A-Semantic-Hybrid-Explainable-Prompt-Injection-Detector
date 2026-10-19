@@ -1,32 +1,77 @@
-# Python
+# =============================================================================
+# SHIELD-LLM Production .gitignore
+# =============================================================================
+
+# Virtual Environments
 venv/
 .venv/
-__pycache__/
-*.pyc
-*.pyo
-.env
-
-# ML artifacts
-ml/checkpoints/
-ml/*.pt
-ml/*.bin
-ml/final_model/
-
-# Dataset
-data/raw/
-data/*.csv
-
-# Backend
+ml/venv/
 backend/venv/
-backend/__pycache__/
-backend/.env
+env/
+.env/
 
-# Node
-frontend/node_modules/
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment Files & Secrets (preserve .env.example)
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
 frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Databases (SQLite logs & temporary DBs)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backend/shield_llm.db
+backend/*.db
+
+# Datasets
+data/*.csv
+data/raw/
+
+# Large Model Weights, Embeddings & Checkpoints
+ml/models/
+ml/checkpoints/
+ml/final_model/
+final_model/
+*.pt
+*.bin
+*.safetensors
+*.onnx
+
+# Compressed Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Node / Frontend Build Artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+frontend/node_modules/
 frontend/dist/
 
-# OS/IDE
+# OS & Editor Metadata
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
