@@ -19,9 +19,13 @@ def get_engine():
 
     from fusion_engine import FusionEngine
 
-    model_dir = os.path.join(ML_DIR, "final_model")
-    train_csv = os.path.abspath(
-        os.path.join(ML_DIR, "..", "data", "train.csv")
+    model_dir = os.environ.get(
+        "SHIELD_MODEL_DIR",
+        os.path.join(ML_DIR, "models", "distilbert_phase5d")
+    )
+    train_csv = os.environ.get(
+        "SHIELD_TRAIN_CSV",
+        os.path.abspath(os.path.join(ML_DIR, "..", "data", "train_phase5g.csv"))
     )
 
     engine = FusionEngine(

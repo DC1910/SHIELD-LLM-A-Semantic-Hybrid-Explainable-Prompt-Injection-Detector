@@ -404,13 +404,14 @@ function App() {
             {scanning && (
               <div className="max-w-4xl mx-auto mt-7">
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
 
                   {[
                     ["01", "RULE ENGINE"],
                     ["02", "SEMANTIC MODEL"],
                     ["03", "CLASSIFIER"],
                     ["04", "FUSION ENGINE"],
+                    ["05", "OLLAMA GATEWAY"],
                   ].map(([number, label]) => (
 
                     <div
@@ -528,9 +529,9 @@ function App() {
                       {/* ALLOWED / FLAGGED / BLOCKED pill */}
                       {(() => {
                         const actionMap = {
-                          safe: { label: "ALLOWED", cls: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,.12)]" },
-                          suspicious: { label: "FLAGGED", cls: "border-amber-400/30 bg-amber-400/10 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,.12)]" },
-                          malicious: { label: "BLOCKED", cls: "border-rose-400/30 bg-rose-400/10 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,.12)]" },
+                          safe: { label: "FORWARDED TO LOCAL LLM", cls: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,.12)]" },
+                          suspicious: { label: "REVIEW REQUIRED (NOT FORWARDED)", cls: "border-amber-400/30 bg-amber-400/10 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,.12)]" },
+                          malicious: { label: "THREAT BLOCKED (NOT FORWARDED)", cls: "border-rose-400/30 bg-rose-400/10 text-rose-300 shadow-[0_0_12px_rgba(244,63,94,.12)]" },
                         }
                         const action = actionMap[result.verdict]
                         return (
@@ -595,26 +596,16 @@ function App() {
                             {result.verdict === "malicious" ? "⚠" : result.verdict === "suspicious" ? "◈" : "✓"}
                           </span>
 
-                          <div>
+                          <div className="w-full">
 
-                            {/* User-friendly explanation */}
-                            <p className="text-sm text-gray-200 leading-relaxed">
-                              {result.verdict === "malicious" ? (
-                                result.detectors.rules.categories.length > 0
-                                  ? `This prompt was identified as a ${result.detectors.rules.categories.map(c =>
-                                    c.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())
-                                  ).join(" / ")
-                                  } attack with high confidence. The SHIELD-LLM engine flagged it as malicious and blocked it from reaching the protected LLM.`
-                                  : "This prompt was identified as a high-confidence threat by the detection engine. It exhibited strong indicators of prompt-injection or adversarial intent and was blocked from reaching the protected LLM."
-                              ) : result.verdict === "suspicious" ? (
-                                result.detectors.rules.categories.length > 0
-                                  ? `This prompt raised suspicion due to patterns associated with ${result.detectors.rules.categories.map(c =>
-                                    c.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())
-                                  ).join(" / ")
-                                  }. It has been flagged for review — the threat score was elevated but did not cross the high-confidence threshold.`
-                                  : "This prompt raised suspicion across one or more detectors. It has been flagged for review — the combined threat score was elevated but did not conclusively indicate a known attack pattern."
-                              ) : (
-                                "No prompt-injection or adversarial threat was detected in this input. The prompt passed all three security checks — rules engine, semantic similarity, and the DistilBERT classifier — and is cleared to reach the protected LLM."
+                            {/* User-friendly explanation derived from actual detector findings */}
+                            <p className="text-sm text-gray-200 leading-relaxed font-sans">
+                              {result.security_explanation || result.explanation || (
+                                result.verdict === "malicious"
+                                  ? "This prompt was identified as a threat and blocked from reaching the protected LLM."
+                                  : result.verdict === "suspicious"
+                                    ? "This prompt raised suspicion across one or more detectors. It has been flagged for review."
+                                    : "No prompt-injection or adversarial threat was detected in this input."
                               )}
                             </p>
 
@@ -641,12 +632,107 @@ function App() {
                                 <span className="px-2.5 py-1 rounded-md bg-violet-400/10 border border-violet-400/15 text-[9px] text-violet-300 font-mono">
                                   HYBRID_DETECTION
                                 </span>
+                                <span className="px-2.5 py-1 rounded-md bg-emerald-400/10 border border-emerald-400/20 text-[9px] text-emerald-300 font-mono">
+                                  FORWARDED_TO_OLLAMA
+                                </span>
                               </div>
                             )}
 
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* ==================================================
+                        DOWNSTREAM LLM GATEWAY (REAL OLLAMA EXECUTION)
+                    ================================================== */}
+                    <div className="border-t border-white/[0.06] mt-8 pt-7">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-8 h-8 rounded-lg border ${
+                              result.verdict === "safe"
+                                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                                : result.verdict === "suspicious"
+                                  ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                                  : "border-rose-400/30 bg-rose-400/10 text-rose-300"
+                            } flex items-center justify-center text-sm`}
+                          >
+                            {result.verdict === "safe" ? "🦙" : "🛡️"}
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-500 font-mono tracking-[0.2em]">
+                              DOWNSTREAM LLM GATEWAY
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {result.verdict === "safe"
+                                ? `Protected Local Model (${result.llm_model || "gemma3:1b"})`
+                                : "Security Firewall Intercept Status"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Gateway routing status badge */}
+                        <div
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-mono tracking-wider w-fit ${
+                            result.verdict === "safe"
+                              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                              : result.verdict === "suspicious"
+                                ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                                : "border-rose-400/30 bg-rose-400/10 text-rose-300"
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              result.verdict === "safe"
+                                ? "bg-emerald-400"
+                                : result.verdict === "suspicious"
+                                  ? "bg-amber-400"
+                                  : "bg-rose-400"
+                            }`}
+                          />
+                          {result.verdict === "safe"
+                            ? "FORWARDED TO LOCAL LLM"
+                            : result.verdict === "suspicious"
+                              ? "REVIEW REQUIRED • NOT FORWARDED"
+                              : "THREAT BLOCKED • NOT FORWARDED"}
+                        </div>
+                      </div>
+
+                      {/* Content block */}
+                      {result.verdict === "safe" ? (
+                        result.llm_response ? (
+                          <div className="rounded-xl border border-emerald-400/25 bg-black/40 p-5 shadow-[0_0_30px_rgba(52,211,153,.05)]">
+                            <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/[0.04]">
+                              <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                LIVE GEMMA RESPONSE GENERATED
+                              </span>
+                              <span className="text-[9px] font-mono text-gray-500">
+                                MODEL: {(result.llm_model || "gemma3:1b").toUpperCase()} (OLLAMA GPU)
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-100 whitespace-pre-wrap leading-relaxed font-sans">
+                              {result.llm_response}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-4 text-xs font-mono text-amber-300">
+                            <span className="font-bold">Ollama Gateway Notice: </span>
+                            {result.llm_error || "Ollama service returned no output."}
+                          </div>
+                        )
+                      ) : result.verdict === "suspicious" ? (
+                        <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-4 text-xs font-mono text-amber-300">
+                          <span className="font-bold">Forwarding Suspended: </span>
+                          Prompt exhibited elevated risk indicators. Prompt not forwarded to LLM pending review.
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.04] p-4 text-xs font-mono text-rose-300">
+                          <span className="font-bold">Threat Blocked: </span>
+                          Security policy prohibited downstream generation. Prompt not forwarded to LLM.
+                        </div>
+                      )}
                     </div>
 
                     {/* ==================================================
@@ -963,7 +1049,7 @@ function Dashboard() {
 
   const realThreats = (dashboardLogs ?? []).map((log) => ({
     prompt: log.prompt_text,
-    type: log.categories || "Unknown",
+    type: log.categories || (log.verdict === "safe" ? "CLEAN / BENIGN" : "UNCATEGORIZED"),
     verdict: log.verdict.toUpperCase(),
   }))
 
