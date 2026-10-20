@@ -124,13 +124,16 @@ class FusionEngine:
         CONFIDENT_HIGH = 0.50
         CONFIDENT_LOW = 0.15
 
+        rule_override = False
         if classifier_score >= CONFIDENT_HIGH or classifier_score <= CONFIDENT_LOW:
             # Classifier is confident - trust it as the primary signal.
             # Still let a very strong rule match nudge things up (rules rarely
             # false-positive - see ablation: 90% precision).
             combined_score = classifier_score
             if rules_result["matched"] and rules_result["max_weight"] >= 0.8:
-                combined_score = max(combined_score, 0.75)
+                if combined_score < 0.75:
+                    combined_score = 0.75
+                    rule_override = True
             gate_used = "classifier_confident"
         else:
             # Classifier is uncertain - blend all three signals as before.
@@ -140,7 +143,9 @@ class FusionEngine:
                 WEIGHT_RULES * rules_score
             )
             if rules_result["matched"] and rules_result["max_weight"] >= 0.8:
-                combined_score = max(combined_score, 0.75)
+                if combined_score < 0.75:
+                    combined_score = 0.75
+                    rule_override = True
             gate_used = "blended_uncertain"
 
         # --- Determine verdict tier ---
@@ -153,9 +158,11 @@ class FusionEngine:
 
         # --- Build explanation ---
         reasons = []
-        if gate_used == "classifier_confident":
+        if rule_override:
+            reasons.append(f"High-severity rule match ({', '.join(rules_result['categories'])}, severity={rules_score:.2f}) elevated threat score to {combined_score:.2f}")
+        elif gate_used == "classifier_confident":
             reasons.append(f"Classifier confident (score={classifier_score:.2f}), trusted directly")
-        if rules_result["matched"]:
+        if rules_result["matched"] and not rule_override:
             reasons.append(f"Matched rule pattern(s): {', '.join(rules_result['categories'])}")
         if semantic_result["matched"] and gate_used == "blended_uncertain":
             reasons.append(f"Semantically similar (sim={semantic_score:.2f}) to known attack pattern")
