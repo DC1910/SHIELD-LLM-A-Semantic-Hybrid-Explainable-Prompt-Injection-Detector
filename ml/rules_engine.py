@@ -24,16 +24,22 @@ RULES = [
     (r"forget (everything|all|what)\s*(you|i)\s*(were|was)?\s*told", "instruction_override", 0.85),
     (r"new instructions?:", "instruction_override", 0.6),
     (r"override (your|the) (system|instructions?|rules?)", "instruction_override", 0.9),
+    (r"(?:bypass|disable|ignore)\s+(?:all\s+)?(?:your|the|any)\s+(?:safety\s+|security\s+)?(?:rules?|restrictions?|filters?|safeguards?|limitations?|guidelines?)", "instruction_override", 0.85),
 
     # --- Role / persona manipulation (jailbreak) ---
-    (r"you are now (a|an)\s", "role_confusion", 0.6),
+    (r"you are now\s+(?:a|an\b|the\b)", "role_confusion", 0.6),
+    (r"(?:you are now|act as|pretend (?:you are|to be)|roleplay as|simulate|become)\s+(?:a\s+|an\s+)?\bDAN\b", "role_confusion", 0.85),
+    (r"from now on\s+(?:you are|act as|be|pretend)", "role_confusion", 0.6),
     (r"pretend (you are|to be)", "role_confusion", 0.55),
     (r"act as (if you|a|an)", "role_confusion", 0.5),
-    (r"\bDAN\b.*mode", "role_confusion", 0.85),
-    (r"developer mode", "role_confusion", 0.7),
-    (r"jailbreak", "role_confusion", 0.8),
-    (r"no (restrictions|filters|rules|limitations)", "role_confusion", 0.6),
-    (r"without (any )?(ethical|moral|safety) (guidelines|constraints|restrictions)", "role_confusion", 0.85),
+    (r"\bDAN\s+(?:mode|\d+\.\d+)\b|(?:enable|activate|enter|switch to)\s+DAN\b", "role_confusion", 0.85),
+    (r"(?:enable|activate|enter|switch to)\s+developer mode|\bdeveloper mode\s*[:=]?\s*(?:on|enabled|active|true)\b|\bdeveloper mode.*(?:unrestricted|no filters|bypass)\b", "role_confusion", 0.7),
+    (r"(?:enable|activate|enter|engage|start|switch to|turn on)\s+(?:the\s+)?jailbreak\s*(?:mode)?", "role_confusion", 0.85),
+    (r"\bjailbreak\s*(?:mode)?\s*[:=]\s*(?:on|enabled|active|true)\b", "role_confusion", 0.85),
+    (r"\bjailbreak\s+(?:yourself|this\s+(?:ai|assistant|model|bot|system)|(?:the|your)\s+(?:safety|rules|filters|system))\b", "role_confusion", 0.85),
+    (r"(?:you are|act as|pretend to be|roleplay as)\s+(?:a\s+|an\s+)?jailbreak(?:ed)?\s+(?:ai|bot|assistant|persona|model)", "role_confusion", 0.8),
+    (r"no (restrictions|filters|rules|limitations|safeguards|guardrails)", "role_confusion", 0.6),
+    (r"without (any )?(ethical|moral|safety) (guidelines|constraints|restrictions|safeguards|filters|guardrails)", "role_confusion", 0.85),
 
     # --- Prompt / system prompt extraction ---
     (r"(reveal|show|print|repeat|output) (your |the )?(system prompt|instructions)", "prompt_extraction", 0.85),
